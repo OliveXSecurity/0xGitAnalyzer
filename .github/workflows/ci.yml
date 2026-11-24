@@ -1,0 +1,92 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Byte-compile
+        run: python -m compileall -q gitanalyzer
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: CLI smoke test
+        run: |
+          gitanalyzer --version
+          gitanalyzer --help
+          gitanalyzer scan --help
+          gitanalyzer scan octocat --dry-run
+          gitanalyzer doctor || true   # trufflehog is not installed on CI
+
+      - name: Dashboard serves
+        run: |
+          gitanalyzer serve --port 8711 &
+          for _ in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8711/ -o /tmp/page.html && break
+            sleep 0.5
+          done
+          grep -q "0xGitAnalyzer" /tmp/page.html
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: evil.example' http://127.0.0.1:8711/api/scans)" = "403"
+          curl -sf http://127.0.0.1:8711/api/scans | grep -q '"scans"'
+          curl -sf http://127.0.0.1:8711/api/status | grep -q '"tools"'
+          curl -sf http://127.0.0.1:8711/api/settings | grep -q '"providers"'
+
+          # Settings round-trip: a stored token must never come back out.
+          curl -sf -X POST http://127.0.0.1:8711/api/settings \
+            -H 'Content-Type: application/json' \
+            -d '{"github_token":"ghp_CANARY_DO_NOT_LEAK","keywords":["acme"]}' > /dev/null
+          curl -sf http://127.0.0.1:8711/api/settings > /tmp/settings.json
+          grep -q '"keywords"' /tmp/settings.json
+          grep -q '"github_token_set": true' /tmp/settings.json
+          if grep -q 'ghp_CANARY_DO_NOT_LEAK' /tmp/settings.json; then
+            echo "FAIL: the API returned a stored token"; exit 1
+          fi
+
+          # Word lists are editable, and only the edited list is stored.
+          curl -sf -X POST http://127.0.0.1:8711/api/settings \
+            -H 'Content-Type: application/json' \
+            -d '{"wordlists":{"include_globs":["*.customext"]}}' > /dev/null
+          curl -sf http://127.0.0.1:8711/api/patterns > /tmp/patterns.json
+          grep -q '"overridden": \["include_globs"\]' /tmp/patterns.json
+          grep -q '"\*.customext"' /tmp/patterns.json
+
+          # A pattern ripgrep cannot compile is refused, not stored.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8711/api/settings \
+            -H 'Content-Type: application/json' \
+            -d '{"wordlists":{"rg_patterns":["(unclosed"]}}')
+          test "$code" = "400"
+
+          # Deleting a scan removes its file and nothing else; a second delete 404s.
+          python - <<'EOF'
+          from gitanalyzer.store import ScanStore
+          store = ScanStore("results")
+          store.save({"id": "ci-doomed", "status": "completed", "started_at": "2026-01-01T00:00:00Z",
+                      "config": {"accounts": ["octocat"]}, "stats": {"total_findings": 0}, "findings": []})
+          EOF
+          test -f results/scan-ci-doomed.json
+          curl -sf -X DELETE http://127.0.0.1:8711/api/scans/ci-doomed | grep -q '"deleted"'
+          test ! -f results/scan-ci-doomed.json
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE http://127.0.0.1:8711/api/scans/ci-doomed)
+          test "$code" = "404"
+          test -f results/.settings.json   # the settings file is not a scan
+
+          kill %1

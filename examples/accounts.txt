@@ -1,0 +1,6 @@
+# One GitHub account per line.
+# Accepts a bare username or a full profile URL.
+# Lines starting with # are ignored.
+
+octocat
+https://github.com/defunkt

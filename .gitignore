@@ -1,0 +1,24 @@
+# Scan output — never commit findings
+results/
+*.scan.json
+*.report.html
+*.report.md
+
+# Secrets
+.env
+.settings.json
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# OS
+.DS_Store

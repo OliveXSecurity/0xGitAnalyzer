@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0xGitAnalyzer</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#128269;</text></svg>">
+<style>/*__STYLE__*/</style>
+</head>
+<body>
+<header>
+  <div class="brand">0xGitAnalyzer <small>exposure scanner</small></div>
+  <div class="stats" id="stats"></div>
+  <div class="header-actions" id="header-actions"></div>
+</header>
+
+<div class="layout" id="view-scans">
+  <aside id="sidebar" hidden>
+    <h3>Scans</h3>
+    <div id="scan-list"></div>
+  </aside>
+
+  <main>
+    <div id="banner"></div>
+    <div class="summary" id="summary"></div>
+    <div class="breakdown" id="breakdown"></div>
+
+    <div class="filters">
+      <input type="search" id="q" placeholder="Search repo, file, match or excerpt...">
+      <select id="f-severity">
+        <option value="all">Any severity</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+        <option value="informative">Informative</option>
+      </select>
+      <select id="f-scanner">
+        <option value="all">Any scanner</option>
+        <option value="trufflehog">TruffleHog</option>
+        <option value="ripgrep">Ripgrep</option>
+      </select>
+      <select id="f-account"><option value="all">All accounts</option></select>
+      <select id="f-type"><option value="all">All types</option></select>
+      <select id="f-ai" hidden>
+        <option value="all">Any AI verdict</option>
+        <option value="true_positive">Confirmed</option>
+        <option value="needs_review">Needs review</option>
+        <option value="false_positive">Dismissed</option>
+      </select>
+      <label class="chip"><input type="checkbox" id="f-verified"> verified only</label>
+      <label class="chip"><input type="checkbox" id="f-noise"> hide noise</label>
+      <button class="ghost" id="expand-all">Expand all</button>
+      <button class="ghost" id="collapse-all">Collapse</button>
+    </div>
+
+    <div class="chip-row" id="chips"></div>
+    <div id="results"></div>
+
+    <details class="log-panel" id="log-panel" hidden>
+      <summary>Scan log</summary>
+      <pre id="log"></pre>
+    </details>
+  </main>
+</div>
+
+<!-- Settings is a page, not a dialog: it holds eight editable word lists and a
+     full system prompt, and none of that belongs in a box you can lose. -->
+<div id="view-settings" hidden>
+  <div class="settings-head">
+    <div>
+      <h1>Settings</h1>
+      <p class="hint" id="settings-where"></p>
+    </div>
+    <button class="ghost" id="set-back">&larr; Back to findings</button>
+  </div>
+  <div class="settings-layout">
+    <nav class="settings-nav"><div id="settings-nav"></div></nav>
+    <div class="settings-body" id="settings-body"></div>
+  </div>
+  <div class="savebar">
+    <span class="save-msg" id="save-msg">Saved settings are the defaults every new scan starts from.</span>
+    <button class="ghost" id="set-revert">Discard changes</button>
+    <button class="primary" id="set-save">Save</button>
+  </div>
+</div>
+
+<footer class="site-foot">
+  <span class="foot-brand">0xGitAnalyzer</span>
+  <span>developed by <a href="https://www.olivex.io" target="_blank" rel="noopener noreferrer">www.olivex.io</a></span>
+</footer>
+
+<div id="modal-root"></div>
+
+<script>window.__SCAN__ = /*__EMBEDDED_SCAN__*/ null;</script>
+<script>/*__APP__*/</script>
+</body>
+</html>
