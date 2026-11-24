@@ -18,6 +18,12 @@ from dataclasses import dataclass, field
 # links, infrastructure hostnames and config key names. That is the material
 # an attacker uses to map a company before touching a single credential.
 # ---------------------------------------------------------------------------
+# Rust regex, not Python: no look-around, and **never backslash-escape a quote
+# inside a character class**. `[^\s\"']` is accepted by Python and by ripgrep 14+,
+# and rejected as an unrecognized escape by the regex crate behind ripgrep 13 —
+# which is what Debian stable and Ubuntu 22.04 install. One such pattern fails the
+# whole combined regex, so the scan searches for nothing. Write `[^\s"']`; a
+# quote needs no escape in a class. A test pins this.
 RG_PATTERNS: list[str] = [
     # Google Docs / Drive / Sheets
     r"(?i)https://docs\.google\.com/(document|spreadsheets|presentation|forms)/d/[a-zA-Z0-9_\-]+",
@@ -37,28 +43,28 @@ RG_PATTERNS: list[str] = [
     r"(?i)https://[a-zA-Z0-9_\-]+\.firebaseio\.com",
     r"(?i)[a-zA-Z0-9_\-]+\.appspot\.com",
     # Database connection strings
-    r"(?i)(mongodb\+srv|mysql|postgresql|redis)://[^\s\"']+",
+    r"""(?i)(mongodb\+srv|mysql|postgresql|redis)://[^\s"']+""",
     # Hardcoded secrets in config files — quoted value, broad key vocabulary
     r"(?i)(?:password|passwd|pwd|secret|api[_-]?key|apikey|access[_-]?key|access[_-]?token"
     r"|auth[_-]?token|client[_-]?secret|private[_-]?token|credentials?)\s*[:=]\s*"
-    r"[\"'][^\"'\s]{8,80}[\"']",
+    r"""["'][^"'\s]{8,80}["']""",
     # Same thing in dotenv / properties form, where the value is NOT quoted:
     #   INTERNAL_API_TOKEN=f3a9c2b8e1d47650aa93
     # Deliberately case-sensitive: an upper-case name is what makes this shape a
     # configured value rather than a line of code.
     r"^[ \t]*(?:export[ \t]+)?[A-Z][A-Z0-9_]{1,40}_"
     r"(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASS|PWD|CREDENTIAL|CREDENTIALS|AUTH)"
-    r"[ \t]*=[ \t]*[\"']?[^\s\"'#]{8,120}",
+    r"""[ \t]*=[ \t]*["']?[^\s"'#]{8,120}""",
     # SharePoint / OneDrive
-    r"(?i)https://[a-zA-Z0-9.\-]+\.sharepoint\.com/[^\s\"']+",
+    r"""(?i)https://[a-zA-Z0-9.\-]+\.sharepoint\.com/[^\s"']+""",
     # Observability dashboards
-    r"(?i)https://[a-zA-Z0-9.\-]+/(grafana|kibana|dashboard)/[^\s\"']+",
+    r"""(?i)https://[a-zA-Z0-9.\-]+/(grafana|kibana|dashboard)/[^\s"']+""",
     # CI
-    r"(?i)https://[a-zA-Z0-9.\-]+/jenkins/[^\s\"']+",
+    r"""(?i)https://[a-zA-Z0-9.\-]+/jenkins/[^\s"']+""",
     # Sentry DSN
     r"(?i)https://[a-f0-9]+@[a-zA-Z0-9.\-]+\.ingest\.sentry\.io/[0-9]+",
     # Catch-all URL — noisy on purpose, filtered and down-ranked later
-    r"(?i)https?://[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}[^\s\"'<>)\]},]*",
+    r"""(?i)https?://[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}[^\s"'<>)\]},]*""",
 ]
 
 # ---------------------------------------------------------------------------

@@ -10,6 +10,11 @@ jobs:
     # The runner is per-entry: ubuntu-latest is Ubuntu 26.04 now and ships no
     # Python 3.9 build. The project claims 3.9 support, so that job pins an
     # older runner instead of dropping the version it promises.
+    #
+    # It earns its place twice over: 22.04 installs ripgrep 13, whose regex
+    # engine rejects constructs that ripgrep 14+ accepts. That job is the only
+    # thing standing between a pattern that works here and a scan that silently
+    # finds nothing on Debian stable.
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -28,7 +33,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install ripgrep
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
+        run: |
+          sudo apt-get update && sudo apt-get install -y ripgrep
+          rg --version   # printed on purpose: the version decides which regexes parse
 
       - name: Install
         run: pip install -e .

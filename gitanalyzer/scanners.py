@@ -155,6 +155,26 @@ def run_trufflehog(
     return findings, seen, ""
 
 
+def rg_error(stderr: str, returncode: int) -> str:
+    """ripgrep's own words, keeping the part that says what is wrong.
+
+    A parse error prints "regex parse error:", then the whole pattern, then a
+    caret, and only then "error: <reason>". The combined pattern is over a
+    thousand characters, so truncating from the front throws away the one line
+    worth reading and reports the echo instead.
+    """
+    lines = [
+        line.strip() for line in (stderr or "").splitlines()
+        if line.strip() and set(line.strip()) != {"^"}
+    ]
+    if not lines:
+        return "exit %d" % returncode
+    reason = next((l for l in reversed(lines) if l.startswith("error:")), lines[-1])
+    if reason is not lines[0]:
+        reason = "%s %s" % (lines[0], reason)
+    return reason[:240]
+
+
 def run_ripgrep(
     repo_dir: str,
     custom_patterns: list[str],
@@ -188,8 +208,7 @@ def run_ripgrep(
     # Reporting it is the difference between "this repo is clean" and "this
     # scan searched for nothing".
     if proc.returncode not in (0, 1):
-        detail = (proc.stderr or "").strip().replace("\n", " ")[:200]
-        return findings, "ripgrep failed: %s" % (detail or "exit %d" % proc.returncode)
+        return findings, "ripgrep failed: %s" % rg_error(proc.stderr, proc.returncode)
 
     for line in (proc.stdout or "").splitlines():
         if not line.strip():

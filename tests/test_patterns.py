@@ -76,6 +76,22 @@ class TestRipgrepPattern(unittest.TestCase):
         pattern = build_ripgrep_pattern(["acme-internal-project"])
         self.assertIn("acme-internal-project", pattern)
 
+    def test_no_pattern_escapes_a_quote(self):
+        """`[^\\s\\"\']` costs nothing in Python and breaks ripgrep 13.
+
+        The regex crate behind ripgrep 13 — Debian stable, Ubuntu 22.04 — rejects
+        a backslash-escaped quote inside a character class as an unrecognized
+        escape sequence, and one such pattern fails the whole combined regex, so
+        every scan on those machines searches for nothing while still reporting
+        "completed". A quote needs no escape inside a class, so the rule is
+        simply never to write one.
+        """
+        from gitanalyzer.patterns import builtin_wordlists
+
+        for pattern in builtin_wordlists()["rg_patterns"]:
+            self.assertNotIn('\\"', pattern, pattern)
+            self.assertNotIn("\\'", pattern, pattern)
+
 
 @unittest.skipUnless(shutil.which("rg"), "ripgrep not installed")
 class TestAgainstRipgrep(unittest.TestCase):
@@ -98,6 +114,23 @@ class TestAgainstRipgrep(unittest.TestCase):
         findings, error = run_ripgrep(self.dir, [], set(), 60)
         self.assertEqual(error, "")
         return [f["preview"] for f in findings]
+
+    def test_every_builtin_pattern_is_accepted_by_ripgrep(self):
+        """Each pattern on its own, so a rejected one names itself.
+
+        The combined regex failing tells you only that something in it is
+        unsupported; this says which.
+        """
+        from gitanalyzer.patterns import builtin_wordlists
+        from gitanalyzer.scanners import rg_error
+
+        for pattern in builtin_wordlists()["rg_patterns"]:
+            proc = subprocess.run(
+                ["rg", "--regexp", pattern, "--quiet"],
+                input="", capture_output=True, text=True,
+            )
+            self.assertIn(proc.returncode, (0, 1),
+                          "%s -> %s" % (pattern, rg_error(proc.stderr, proc.returncode)))
 
     def test_unquoted_dotenv_secret_is_found(self):
         """Regression: `.env` files are the headline case and used to score zero,

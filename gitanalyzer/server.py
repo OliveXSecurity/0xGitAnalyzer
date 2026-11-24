@@ -386,8 +386,10 @@ def _check_rg_patterns(patterns: list[str]) -> str:
                 return "pattern rejected (%s): %s" % (exc, pattern[:120])
             continue
         if proc.returncode not in (0, 1):
-            detail = (proc.stderr or "").strip().replace("\n", " ")
-            return "ripgrep rejected a pattern: %s" % (detail[:300] or pattern[:120])
+            from .scanners import rg_error
+
+            return "ripgrep rejected `%s`: %s" % (
+                pattern[:80], rg_error(proc.stderr, proc.returncode))
     return ""
 
 
