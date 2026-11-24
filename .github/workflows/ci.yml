@@ -7,10 +7,20 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # The runner is per-entry: ubuntu-latest is Ubuntu 26.04 now and ships no
+    # Python 3.9 build. The project claims 3.9 support, so that job pins an
+    # older runner instead of dropping the version it promises.
+    runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.9", "3.12", "3.13"]
+        include:
+          - python-version: "3.9"
+            runner: ubuntu-22.04
+          - python-version: "3.12"
+            runner: ubuntu-latest
+          - python-version: "3.13"
+            runner: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
